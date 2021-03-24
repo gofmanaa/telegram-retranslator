@@ -10,7 +10,6 @@ import (
 )
 
 const WORKER_COUNT = 5
-const JOB_COUNT = 100
 
 var ctx = context.Background()
 
@@ -19,8 +18,8 @@ func Run() {
 	defer fmt.Println("Stop application.")
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
-		Password: "sOmE_sEcUrE_pAsS", // no password set
-		DB:       0,                  // use default DB
+		Password: "", // no password set
+		DB:       0,  // use default DB
 	})
 
 	collector := pool.StartDispatcher(WORKER_COUNT) // start up worker pool
@@ -37,28 +36,4 @@ func Run() {
 
 		collector.Work <- pool.Work{Job: job, ID: i}
 	}
-	//parser.Read(file)
-
-	//	bot.Run()
-
-	//err := rdb.Set(ctx, "key", "value", 0).Err()
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	keys, err := rdb.Keys(ctx, "*").Result()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("key len: ", len(keys))
-	//
-	//val2, err := rdb.Get(ctx, "key2").Result()
-	//if err == redis.Nil {
-	//	fmt.Println("key2 does not exist")
-	//} else if err != nil {
-	//	panic(err)
-	//} else {
-	//	fmt.Println("key2", val2)
-	//}
-
 }
