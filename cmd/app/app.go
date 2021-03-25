@@ -2,11 +2,13 @@ package app
 
 import (
 	"fmt"
-	"guthub.com/gofmanaa/telegram-bot/pkg/parser"
 	"io/ioutil"
+
+	"guthub.com/gofmanaa/telegram-bot/pkg/config"
+	"guthub.com/gofmanaa/telegram-bot/pkg/parser"
 )
 
-func Run() {
+func Run(conf *config.Configuration) {
 	fmt.Println("Start application.")
 	defer fmt.Println("Stop application.")
 
@@ -15,7 +17,12 @@ func Run() {
 		fmt.Println(err)
 	}
 
-	parser.Read(file)
+	media := parser.Scan(file)
+	err = media.Save("test.txt")
+	if err != nil {
+		fmt.Println(err)
+	}
+	//server.Run(conf, media)
+	//bot.Run(conf, media)
 
-	//	bot.Run()
 }

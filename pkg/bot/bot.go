@@ -1,19 +1,24 @@
 package bot
 
 import (
-	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"fmt"
 	"log"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"guthub.com/gofmanaa/telegram-bot/pkg/config"
+	"guthub.com/gofmanaa/telegram-bot/pkg/store"
 )
 
-func Run() {
-	bot, err := tgbotapi.NewBotAPI("986592745:AAH_8wxJsLPXv7pwnQuO5ojNUQK1v_7P4W4")
+func Run(conf *config.Configuration, media *store.Media) {
+	fmt.Println(conf.TelegramApiToken)
+	bot, err := tgbotapi.NewBotAPI(conf.TelegramApiToken)
 	if err != nil {
 		log.Panic(err)
 	}
 
 	bot.Debug = true
 
-	log.Printf("Authorized on account %s", bot.Self.UserName)
+	fmt.Printf("Authorized on account %s", bot.Self.UserName)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60

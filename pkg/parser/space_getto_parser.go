@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"regexp"
+
+	"guthub.com/gofmanaa/telegram-bot/pkg/store"
 )
 
 type Posts []Post
@@ -18,40 +19,40 @@ type Post struct {
 	} `json:"content"`
 }
 
-type Media struct {
-	Url map[string]struct{}
-}
-
-func (m *Media) Add(url string) {
-	m.Url[url] = struct{}{}
-}
-
-func Read(r []byte) {
+func Scan(r []byte) *store.Media {
 	var data Posts
-	media := Media{Url: make(map[string]struct{})}
+	media := &store.Media{Url: make(map[string]struct{})}
 	//err := json.Unmarshal(r, &data)
 	buf := bytes.NewBuffer(r)
 	err := json.NewDecoder(buf).Decode(&data)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return nil
 	}
+	//wg := sync.WaitGroup{}
+	fmt.Println("Posts count:", len(data))
+	//resultCh := make(chan string, 500)
+	postContents := []string{}
 
 	for _, post := range data {
-		fmt.Printf("%s\n", post.Title.Rendered)
-		//r := regexp.MustCompile(`<a[^>]+href=\"(.*?)\"[^>]*>(.*?)<\/a>`)
-		//r := regexp.MustCompile(`(?:href=['"])([:\/.A-z?<_&\s=>0-9;-]+)`)
-		//r := regexp.MustCompile(`(?:href=['"])([:\/.A-z?<_&\s=>0-9;-]+)`)
-		//fmt.Printf("%s\n",r.FindAll([]byte(post.Content.Rendered), -1))
+		postContents = append(postContents, post.Content.Rendered)
+		// wg.Add(1)
+		// go func(content string, result chan string) {
+		// 	var re = regexp.MustCompile(`(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)`)
 
-		//urls := r.FindAllString(post.Content.Rendered, -1)
-		var re = regexp.MustCompile(`(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)`)
-		var str = post.Content.Rendered
+		// 	for _, match := range re.FindAllString(content, -1) {
+		// 		result <- match
+		// 	}
+		// 	wg.Done()
 
-		for _, match := range re.FindAllString(str, -1) {
-			media.Add(match)
-		}
+		// }(post.Content.Rendered, ch)
 
 	}
-		fmt.Println(media)
+	// close(ch)
+	//wg.Wait()
+	// for val := range ch {
+	// 	media.Add(val)
+	// }
+
+	return media
 }
