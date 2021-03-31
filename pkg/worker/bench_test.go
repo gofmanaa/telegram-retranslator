@@ -1,20 +1,18 @@
 package app
 
 import (
-	"context"
 	"guthub.com/gofmanaa/telegram-bot/cmd/app"
 	"guthub.com/gofmanaa/telegram-bot/pkg/worker/pool"
 	"guthub.com/gofmanaa/telegram-bot/pkg/worker/work"
 	"testing"
 )
 
-var ctx = context.Background()
-
 func BenchmarkConcurrent(b *testing.B) {
-	collector := pool.StartDispatcher(ctx, app.WORKER_COUNT, nil) // start up worker pool
+	collector := pool.StartDispatcher(app.WORKER_COUNT) // start up worker pool
 
 	for n := 0; n < b.N; n++ {
-		for i, job := range work.CreateJobs(20) {
+		for i, srtJob := range work.CreateJobs(20) {
+			job := work.TestJob{InputData: srtJob}
 			collector.Work <- pool.Work{Job: job, ID: i}
 		}
 	}
@@ -22,8 +20,9 @@ func BenchmarkConcurrent(b *testing.B) {
 
 func BenchmarkNonconcurrent(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		for _, job := range work.CreateJobs(20) {
-			work.DoWork(job, 1)
+		for _, srtJob := range work.CreateJobs(20) {
+			job := work.TestJob{InputData: srtJob}
+			job.DoWork()
 		}
 	}
 }

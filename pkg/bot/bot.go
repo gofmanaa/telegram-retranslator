@@ -1,12 +1,18 @@
 package bot
 
 import (
+	"context"
+	"fmt"
+	"github.com/go-redis/redis/v8"
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"guthub.com/gofmanaa/telegram-bot/config"
+	"guthub.com/gofmanaa/telegram-bot/pkg/redis_db"
 	"log"
+	"time"
 )
 
-func Run() {
-	bot, err := tgbotapi.NewBotAPI("986592745:AAH_8wxJsLPXv7pwnQuO5ojNUQK1v_7P4W4")
+func Run(ctx context.Context, rdx *redis.Client, conf *config.Config) {
+	bot, err := tgbotapi.NewBotAPI(conf.TelegramApiKey)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -14,22 +20,35 @@ func Run() {
 	bot.Debug = true
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
+	var done chan struct{}
+	ticker := time.NewTicker(time.Minute * 10)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	updates := bot.GetUpdatesChan(u)
-
-	for update := range updates {
-		if update.Message == nil { // ignore any non-Message Updates
-			continue
+	go func() {
+		for t := range ticker.C {
+			fmt.Printf("Start bot.Run() at %v", t)
+			keys := redis_db.KeysByStatus(ctx, rdx, 0)
+			if len(keys) > 0 {
+				for i := 0; i < 5; i++ {
+					url := redis_db.GetByKey(ctx, rdx, keys[i])
+					fmt.Println(url)
+					SendPhoto(bot, conf.TelegramSpaceGettoChatId, url) //todo use NewMediaGroup
+					redis_db.Publish(ctx, rdx, url)
+				}
+			} else {
+				ticker.Stop()
+				done <- struct{}{}
+			}
 		}
+		done <- struct{}{}
+	}()
+	<-done
 
-		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+}
 
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-		msg.ReplyToMessageID = update.Message.MessageID
-
-		bot.Send(msg)
+func SendPhoto(bot *tgbotapi.BotAPI, chatId int, url string) {
+	msg := tgbotapi.NewPhotoShare(int64(chatId), url)
+	_, err := bot.Send(msg)
+	if err != nil {
+		log.Fatalln("Error Telegram send msg: ", err)
 	}
 }

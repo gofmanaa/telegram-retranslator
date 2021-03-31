@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/go-redis/redis/v8"
+	"guthub.com/gofmanaa/telegram-bot/pkg/redis_db"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"regexp"
@@ -22,6 +24,7 @@ type Post struct {
 	} `json:"content"`
 }
 
+// Unique data set
 type Set struct {
 	sync.Mutex
 	Set map[string]struct{}
@@ -32,6 +35,9 @@ func NewSet() *Set {
 }
 
 func (s *Set) Add(data string) {
+	if checkUrl(data) != true {
+		return
+	}
 	s.Lock()
 	defer s.Unlock()
 	s.Set[data] = struct{}{}
@@ -44,18 +50,22 @@ type SpaceGetto struct {
 }
 
 // create list of job
-func CreateJobs(content []byte) []string {
+func CreateJobs() []string {
 	var inputData []string
-	var post Posts
-
-	buf := bytes.NewBuffer(content)
-	err := json.NewDecoder(buf).Decode(&post)
+	var posts Posts
+	resp, err := http.Get("https://www.spaceghetto.space/wp-json/wp/v2/posts")
 	if err != nil {
+		log.Panicln("Request error:", err)
+	}
+
+	data, _ := ioutil.ReadAll(resp.Body)
+	buf := bytes.NewBuffer(data)
+	if json.NewDecoder(buf).Decode(&posts) != nil {
 		log.Fatal(err)
 	}
 
-	for i := 0; i < len(post); i++ {
-		inputData = append(inputData, post[i].Content.Rendered)
+	for i := 0; i < len(posts); i++ {
+		inputData = append(inputData, posts[i].Content.Rendered)
 	}
 
 	return inputData
@@ -70,11 +80,8 @@ func (sg SpaceGetto) DoWork() {
 	}
 
 	for url := range imgs.Set {
-		if checkUrl(url) {
-			err := sg.Rdb.Set(sg.Ctx, url, "", 0).Err()
-			if err != nil {
-				log.Fatal("Redis error: ", err)
-			}
+		if existImage(url) {
+			redis_db.Save(sg.Ctx, sg.Rdb, url, 0)
 		}
 	}
 }
@@ -84,19 +91,24 @@ func checkUrl(url string) bool {
 		return false
 	}
 
+	//string shouldn't be youtube link (youtu.be|youtube.com)
 	var re = regexp.MustCompile(`youtu*`)
 
 	if re.MatchString(url) {
 		return false
 	}
 
-	if existImage(url) != true {
+	//url mast contain allow img type
+	var regImg = regexp.MustCompile(`\.jpg$|\.png$|\.gif$|\.gifv$`)
+
+	if !regImg.MatchString(url) {
 		return false
 	}
 
 	return true
 }
 
+// Send Http Head request
 func existImage(url string) bool {
 	resp, err := http.Head(url)
 	if err != nil {
