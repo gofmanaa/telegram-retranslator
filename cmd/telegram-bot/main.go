@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/joho/godotenv"
-	"guthub.com/gofmanaa/telegram-bot/cmd/app"
+	"guthub.com/gofmanaa/telegram-bot/app"
 	"guthub.com/gofmanaa/telegram-bot/config"
 	"log"
 	"time"
