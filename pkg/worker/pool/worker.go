@@ -1,11 +1,12 @@
 package pool
 
 import (
+	"context"
 	"log"
 )
 
 type Jober interface {
-	DoWork()
+	DoWork(ctx context.Context)
 }
 
 type Work struct {
@@ -21,13 +22,13 @@ type Worker struct {
 }
 
 // start worker
-func (w *Worker) Start() {
+func (w *Worker) Start(ctx context.Context) {
 	go func() {
 		for {
 			w.WorkerChannel <- w.Channel // when the worker is available place channel in queue
 			select {
 			case job := <-w.Channel: // worker has received job
-				job.Job.DoWork() // do work
+				job.Job.DoWork(ctx) // do work
 			case <-w.End:
 				return
 			}

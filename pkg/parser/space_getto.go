@@ -16,6 +16,7 @@ import (
 type Posts []Post
 
 type Post struct {
+	ID    int `json:"id"`
 	Title struct {
 		Rendered string `json:"rendered"`
 	} `json:"title"`
@@ -25,33 +26,19 @@ type Post struct {
 }
 
 // Unique data set
-type Set struct {
+type Job struct {
 	sync.Mutex
-	Set map[string]struct{}
-}
-
-func NewSet() *Set {
-	return &Set{Set: make(map[string]struct{})}
-}
-
-func (s *Set) Add(data string) {
-	if checkUrl(data) != true {
-		return
-	}
-	s.Lock()
-	defer s.Unlock()
-	s.Set[data] = struct{}{}
+	ID      int
+	Content string
 }
 
 type SpaceGetto struct {
-	Ctx       context.Context
 	Rdb       *redis.Client
-	InputData string
+	InputData *Job
 }
 
 // create list of job
-func CreateJobs() []string {
-	var inputData []string
+func CreateJobs() []*Job {
 	var posts Posts
 	resp, err := http.Get("https://www.spaceghetto.space/wp-json/wp/v2/posts")
 	if err != nil {
@@ -63,27 +50,55 @@ func CreateJobs() []string {
 	if json.NewDecoder(buf).Decode(&posts) != nil {
 		log.Fatal(err)
 	}
-
-	for i := 0; i < len(posts); i++ {
-		inputData = append(inputData, posts[i].Content.Rendered)
+	var jobs []*Job
+	for _, post := range posts {
+		job := &Job{}
+		job.ID = post.ID
+		job.Content = post.Content.Rendered
+		jobs = append(jobs, job)
 	}
 
-	return inputData
+	return jobs
+}
+
+type SGModel struct {
+	mx     sync.Mutex
+	ID     int
+	Title  string
+	Status int
+	URLMap map[string]struct{}
+}
+
+func NewModel() *SGModel {
+	return &SGModel{URLMap: make(map[string]struct{})}
+}
+
+func (m *SGModel) Save(ctx context.Context, client *redis.Client) {
+	m.mx.Lock()
+	has := redis_db.HasIdStatus(ctx, client, m.ID, "*")
+	if has {
+		m.mx.Unlock()
+		return
+	}
+	redis_db.Set(ctx, client, m.ID, 0)
+	for url := range m.URLMap {
+		redis_db.SAdd(ctx, client, m.ID, url)
+	}
+	m.mx.Unlock()
 }
 
 // do job
-func (sg SpaceGetto) DoWork() {
-	imgs := NewSet()
-	var re = regexp.MustCompile(`(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)`)
-	for _, match := range re.FindAllString(sg.InputData, -1) {
-		imgs.Add(match)
-	}
+func (sg SpaceGetto) DoWork(ctx context.Context) {
+	model := NewModel()
+	re := regexp.MustCompile(`(https:\/\/)([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)`)
 
-	for url := range imgs.Set {
-		if existImage(url) {
-			redis_db.Save(sg.Ctx, sg.Rdb, url, 0)
+	model.ID = sg.InputData.ID
+	for _, match := range re.FindAllString(sg.InputData.Content, -1) {
+		if checkUrl(match) {
+			model.URLMap[match] = struct{}{}
 		}
 	}
+	model.Save(ctx, sg.Rdb)
 }
 
 func checkUrl(url string) bool {
@@ -91,34 +106,15 @@ func checkUrl(url string) bool {
 		return false
 	}
 
-	//string shouldn't be youtube link (youtu.be|youtube.com)
+	// string shouldn't be youtube link (youtu.be|youtube.com)
 	var re = regexp.MustCompile(`youtu*`)
 
 	if re.MatchString(url) {
 		return false
 	}
 
-	//url mast contain allow img type
-	var regImg = regexp.MustCompile(`\.jpg$|\.png$|\.gif$|\.gifv$`)
+	// url mast contain allow img type
+	var regImg = regexp.MustCompile(`\.jpg$|\.png$|\.gif$`)
 
-	if !regImg.MatchString(url) {
-		return false
-	}
-
-	return true
-}
-
-// Send Http Head request
-func existImage(url string) bool {
-	resp, err := http.Head(url)
-	if err != nil {
-		return false
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("Url [%s] Status [%d]", url, resp.StatusCode)
-		return false
-	}
-
-	return true
+	return regImg.MatchString(url)
 }

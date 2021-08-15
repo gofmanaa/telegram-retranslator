@@ -1,18 +1,18 @@
 package pool
 
 import (
+	"context"
 	"log"
 )
-
-var WorkerChannel = make(chan chan Work)
 
 type Collector struct {
 	Work chan Work // receives jobs to send to workers
 	End  chan bool // when receives bool stops workers
 }
 
-func StartDispatcher(workerCount int) Collector {
+func StartDispatcher(ctx context.Context, workerCount int) Collector {
 	var i int
+	var WorkerChannel = make(chan chan Work)
 	var workers []Worker
 	input := make(chan Work) // channel to receive work
 	end := make(chan bool)   // channel to spin down workers
@@ -27,7 +27,7 @@ func StartDispatcher(workerCount int) Collector {
 			WorkerChannel: WorkerChannel,
 			End:           make(chan bool),
 		}
-		worker.Start()
+		worker.Start(ctx)
 		workers = append(workers, worker) // stores worker
 	}
 
@@ -40,6 +40,7 @@ func StartDispatcher(workerCount int) Collector {
 					w.Stop() // stop worker
 				}
 				return
+
 			case work := <-input:
 				worker := <-WorkerChannel // wait for available channel
 				worker <- work            // dispatch work to worker

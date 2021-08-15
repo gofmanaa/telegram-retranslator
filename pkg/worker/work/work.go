@@ -1,6 +1,7 @@
 package work
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"math/rand"
@@ -19,6 +20,7 @@ func RandStringRunes(n int) string {
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
+
 	return string(b)
 }
 
@@ -29,12 +31,12 @@ func CreateJobs(amount int) []string {
 	for i := 0; i < amount; i++ {
 		jobs = append(jobs, RandStringRunes(10))
 	}
+
 	return jobs
 }
 
 // mimics any type of job that can be run concurrently
-func (tj TestJob) DoWork() {
-
+func (tj TestJob) DoWork(ctx context.Context) {
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(tj.InputData))
 	time.Sleep(time.Second)

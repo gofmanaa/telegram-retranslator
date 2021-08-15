@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"guthub.com/gofmanaa/telegram-bot/config"
 	"guthub.com/gofmanaa/telegram-bot/pkg/bot"
 	"guthub.com/gofmanaa/telegram-bot/pkg/parser"
@@ -11,30 +10,37 @@ import (
 	"time"
 )
 
-const WORKER_COUNT = 5
-const DEADLINE = 50 * time.Second
-
-var ctx = context.Background()
+const WorkerCount = 5
 
 func Run(conf *config.Config) {
-	fmt.Println("Start application.")
-	defer fmt.Println("Stop application.")
+	log := conf.Log
+	defer log.Println("Stop application.")
 
+	var ctx = context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	rdb := redis_db.InitRedis(ctx, conf)
 
 	var done chan struct{}
-	ticker := time.NewTicker(time.Minute * 10)
+	ticker := time.NewTicker(time.Minute * 15)
 
 	go func() {
+		log.Printf("Start parser.SpaceGetto at %v\n", time.Now())
+		collector := pool.StartDispatcher(ctx, WorkerCount) // start up worker pool
+		for i, j := range parser.CreateJobs() {
+			job := parser.SpaceGetto{
+				Rdb:       rdb,
+				InputData: j,
+			}
+
+			collector.Work <- pool.Work{Job: job, ID: i}
+		}
 		for t := range ticker.C {
-			fmt.Printf("Start parser.SpaceGetto at %v\n", t)
-			collector := pool.StartDispatcher(WORKER_COUNT) // start up worker pool
+			log.Printf("Start parser.SpaceGetto at %v\n", t)
+			collector := pool.StartDispatcher(ctx, WorkerCount) // start up worker pool
 			for i, j := range parser.CreateJobs() {
 				job := parser.SpaceGetto{
-					Ctx:       ctx,
 					Rdb:       rdb,
 					InputData: j,
 				}

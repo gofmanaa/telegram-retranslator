@@ -1,33 +1,42 @@
 package main
 
 import (
-	"fmt"
 	"github.com/joho/godotenv"
-	"guthub.com/gofmanaa/telegram-bot/app"
+	"guthub.com/gofmanaa/telegram-bot/cmd/telegram-bot/app"
 	"guthub.com/gofmanaa/telegram-bot/config"
 	"log"
-	"time"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"runtime"
 )
 
+import _ "github.com/mkevac/debugcharts"
+
 func init() {
+	runtime.SetBlockProfileRate(0)
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 }
 
 func main() {
-	conf := config.New()
-	app.Run(conf)
-	//for t := range time.Tick(time.Hour*2) {
-	//	fmt.Printf("Start app.Run() at %v", t)
-	//	app.Run(conf)
-	//}
 
-}
+	go func() {
 
-func doEvery(d time.Duration, f func(...interface{})) {
-	for t := range time.Tick(d) {
-		fmt.Printf("Start app.Run() at %v", t)
-		f()
+		http.ListenAndServe(":8080", nil)
+
+	}()
+
+	logFile, err := os.OpenFile("log/log.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatalln("Error open log file")
 	}
+
+	defer logFile.Close()
+	logger := log.New(logFile, "", log.Ldate|log.Ltime|log.Lshortfile)
+	conf := config.New(logger)
+
+	app.Run(conf)
+
 }

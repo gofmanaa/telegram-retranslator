@@ -1,23 +1,27 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 )
 
 type Config struct {
-	TelegramApiKey           string
-	TelegramSpaceGettoChatId int
+	TelegramAPIKey           string
+	TelegramSpaceGettoChatID int
 	RedisPass                string
+	Log                      *log.Logger
 }
 
 // New returns a new Config struct
-func New() *Config {
-	chatId, _ := strconv.Atoi(getEnv("TELEGRAM_SPACE_GETTO_CHAT_ID", ""))
+func New(log *log.Logger) *Config {
+	chatID, _ := strconv.Atoi(getEnv("TELEGRAM_SPACE_GETTO_CHAT_ID", ""))
+
 	return &Config{
-		TelegramApiKey:           getEnv("TELEGRAM_API_KEY", ""),
-		TelegramSpaceGettoChatId: chatId,
+		TelegramAPIKey:           getEnv("TELEGRAM_API_KEY", ""),
+		TelegramSpaceGettoChatID: chatID,
 		RedisPass:                getEnv("REDIS_PASS", ""),
+		Log:                      log,
 	}
 }
 
