@@ -13,4 +13,4 @@ env:
 
 
 up:
-	 docker-compose up -d & go build -v cmd/telegram-bot/main.go & ./main &
+	 docker-compose up -d --build & go build -v cmd/telegram-bot/main.go & ./main &
